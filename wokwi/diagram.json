@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "author": "Grupo 7 - AquaSense",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": 30, "left": -190, "attrs": {} },
+    { "type": "wokwi-relay-module", "id": "relay1", "top": 60, "left": 200, "attrs": {} },
+    { "type": "wokwi-resistor", "id": "r1", "top": -40, "left": 380, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "led1", "top": -120, "left": 370, "attrs": { "color": "blue", "label": "BOMBA" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 230, "left": 180, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "led2", "top": 200, "left": 280, "attrs": { "color": "green", "label": "STATUS" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "pot1:VCC", "esp:3V3", "red", [] ],
+    [ "pot1:GND", "esp:GND.1", "black", [] ],
+    [ "pot1:SIG", "esp:34", "green", [] ],
+    [ "relay1:VCC", "esp:5V", "red", [] ],
+    [ "relay1:GND", "esp:GND.2", "black", [] ],
+    [ "relay1:IN", "esp:26", "orange", [] ],
+    [ "relay1:COM", "esp:5V", "red", [] ],
+    [ "relay1:NO", "r1:1", "blue", [] ],
+    [ "r1:2", "led1:A", "blue", [] ],
+    [ "led1:C", "esp:GND.3", "black", [] ],
+    [ "esp:2", "r2:1", "green", [] ],
+    [ "r2:2", "led2:A", "green", [] ],
+    [ "led2:C", "esp:GND.3", "black", [] ]
+  ],
+  "dependencies": {}
+}
