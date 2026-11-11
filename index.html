@@ -328,13 +328,13 @@
   /* ---------- simulação: 10 passos por segundo ---------- */
   setInterval(() => {
     if (!arrastando) {
-      umidade += bomba ? 0.3 : -0.1;            // a bomba molha, o sol seca
+      umidade += bomba ? 1.0 : -0.4;            // a bomba molha, o sol seca (tempo acelerado)
       umidade = Math.min(100, Math.max(0, umidade));
     }
     // regra com histerese, igual à ESP32
     if (!bomba && umidade < LIMITE_SECO) bomba = true;
     else if (bomba && umidade > LIMITE_ENCHARCADO) bomba = false;
-    reserva = bomba ? Math.max(18, reserva - 0.08) : Math.min(100, reserva + 0.03);
+    reserva = bomba ? Math.max(18, reserva - 0.25) : Math.min(100, reserva + 0.1);
   }, 100);
 
   /* ---------- planta ---------- */
