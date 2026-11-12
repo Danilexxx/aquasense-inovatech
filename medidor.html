@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umidade do solo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060d1a;
+    --texto: #eef3ff;
+    --suave: #8c9bbd;
+    --borda: rgba(255,255,255,0.08);
+    --vidro: rgba(255,255,255,0.04);
+    --seco: #f05252;
+    --ideal: #2fd27a;
+    --encharcado: #4c8dff;
+    --destaque: #5cc8ff;
+    --fonte: "Outfit", Bahnschrift, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html {
+    min-height: 100%;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 600px at 50% 35%, rgba(40,90,170,.35), transparent 70%),
+      radial-gradient(1400px 900px at 50% 120%, rgba(10,40,90,.6), transparent 70%);
+    background-attachment: fixed;
+  }
+  body {
+    margin: 0; min-height: 100vh;
+    background: transparent;
+    color: var(--texto);
+    font-family: var(--fonte);
+    display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: var(--fonte); font-variant-numeric: tabular-nums; }
+
+  /* ---------- barra de cima ---------- */
+  header {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    padding: 18px 24px;
+  }
+  .pilula {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--borda);
+    background: var(--vidro); font-size: 14px; color: var(--suave);
+  }
+  .pilula i { width: 9px; height: 9px; border-radius: 50%; background: #64748b; display: inline-block; }
+  .pilula.ok i { background: var(--ideal); box-shadow: 0 0 10px var(--ideal); }
+  .pilula.ok { color: var(--texto); }
+  .pilula.alerta i { background: #f5a524; box-shadow: 0 0 10px #f5a524; }
+  button {
+    font: inherit; font-size: 14px; color: var(--texto); cursor: pointer;
+    background: var(--vidro); border: 1px solid var(--borda);
+    padding: 8px 16px; border-radius: 999px; transition: background .15s, border-color .15s;
+  }
+  button:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,.16); }
+  button.principal { background: var(--destaque); color: #03213a; border-color: transparent; font-weight: 600; }
+  button.principal:hover { background: #8edbff; }
+  button.icone { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; }
+  button.icone svg { width: 18px; height: 18px; }
+  button[hidden] { display: none; }
+
+  #aviso {
+    display: none; margin: 0 auto 10px; max-width: 760px; padding: 12px 16px; border-radius: 14px;
+    background: rgba(245,165,36,.1); border: 1px solid rgba(245,165,36,.3); color: #fcd47c; font-size: 15px;
+  }
+
+  /* ---------- medidor ---------- */
+  main {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 16px 36px;
+  }
+  #velocimetro { width: min(820px, 100%); height: auto; max-height: calc(100vh - 250px); min-height: 260px; display: block; }
+  .estado {
+    margin-top: 4px; font-size: clamp(24px, 3vw, 38px); font-weight: 600; letter-spacing: .5px;
+    padding: 6px 30px; border-radius: 999px; transition: color .4s, background .4s;
+  }
+  .estado.seco { color: var(--seco); background: rgba(240,82,82,.12); }
+  .estado.ideal { color: var(--ideal); background: rgba(47,210,122,.12); }
+  .estado.encharcado { color: var(--encharcado); background: rgba(76,141,255,.14); }
+  .estado.nada { color: var(--suave); background: rgba(255,255,255,.05); }
+  .agua { margin-top: 12px; color: var(--suave); font-size: 16px; font-weight: 300; min-height: 1.3em; }
+  .agua strong { color: var(--texto); font-weight: 500; }
+  .legenda { display: flex; gap: 22px; margin-top: 18px; color: var(--suave); font-size: 15px; flex-wrap: wrap; justify-content: center; }
+  .legenda b { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+
+  /* ---------- painel escondido ---------- */
+  .fundo {
+    position: fixed; inset: 0; background: rgba(2,6,14,.55); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .painel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%);
+    background: #0b1528; border-left: 1px solid var(--borda);
+    transform: translateX(100%); transition: transform .3s ease;
+    display: flex; flex-direction: column;
+  }
+  body.aberto .fundo { opacity: 1; pointer-events: auto; }
+  body.aberto .painel { transform: none; }
+  .painel-topo { display: flex; align-items: center; gap: 6px; padding: 16px 16px 0; }
+  .abas { display: flex; gap: 4px; flex: 1; background: rgba(255,255,255,.04); padding: 4px; border-radius: 999px; }
+  .abas button { flex: 1; border: 0; background: transparent; color: var(--suave); }
+  .abas button.ativa { background: rgba(255,255,255,.1); color: var(--texto); }
+  .conteudo { padding: 20px; overflow-y: auto; flex: 1; }
+  .conteudo[hidden] { display: none; }
+  .rotulo { font-size: 13px; color: var(--suave); text-transform: uppercase; letter-spacing: 1.2px; margin: 0 0 8px; }
+  .adcatual { font-size: 15px; color: var(--suave); margin-bottom: 16px; }
+  .adcatual strong { color: var(--texto); font-size: 22px; font-weight: 500; margin-left: 6px; }
+  .calib { display: grid; gap: 10px; }
+  .caixa {
+    display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px;
+    border: 1px solid var(--borda); border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.02);
+  }
+  .caixa span { display: block; font-size: 15px; }
+  .caixa em { display: block; font-style: normal; font-size: 13px; color: var(--suave); margin-top: 2px; }
+  .caixa strong { font-size: 22px; font-weight: 500; min-width: 56px; text-align: right; }
+  .dica { color: var(--suave); font-size: 14px; margin: 16px 0 0; line-height: 1.5; font-weight: 300; }
+  .dica a { color: var(--suave); }
+  .cmd { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cmd button { font-size: 13px; padding: 7px 12px; }
+  #log {
+    height: calc(100vh - 190px); min-height: 200px; overflow-y: auto; margin: 14px 0 0; padding: 12px 14px;
+    background: rgba(0,0,0,.3); border-radius: 12px; border: 1px solid var(--borda);
+    font: 12.5px/1.5 "JetBrains Mono", Consolas, monospace; color: #b6c4e2; white-space: pre-wrap;
+  }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(30px);
+    background: #12223d; border: 1px solid var(--borda); padding: 12px 20px; border-radius: 14px;
+    opacity: 0; transition: .3s; pointer-events: none; font-size: 15px; max-width: calc(100% - 32px);
+  }
+  .toast.ver { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; flex-wrap: wrap; }
+    .legenda { gap: 12px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div id="status" class="pilula"><i></i><span>Desconectado</span></div>
+  <button id="btnConectar" class="principal">Conectar</button>
+  <button id="btnTela" class="icone" title="Tela cheia (tecla F)" aria-label="Tela cheia">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <button id="btnAjustes" class="icone" title="Calibração e mensagens (tecla C)" aria-label="Ajustes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+
+<div id="aviso"></div>
+
+<main>
+  <svg id="velocimetro" viewBox="0 0 400 334" role="img" aria-label="Velocímetro de umidade">
+    <defs>
+      <filter id="brilho" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <radialGradient id="centro" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#1b335a" stop-opacity=".9"/><stop offset="1" stop-color="#0b1730" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="200" cy="190" r="178" fill="url(#centro)"/>
+    <g id="faixas"></g>
+    <g id="marcas"></g>
+    <g id="ponteiro" filter="url(#brilho)">
+      <polygon points="0,-5 150,0 0,5 -22,0" fill="#f8fafc"/>
+    </g>
+    <circle cx="200" cy="190" r="14" fill="#0b1528" stroke="#f8fafc" stroke-width="4"/>
+    <text id="valor" class="num" x="200" y="298" text-anchor="middle" fill="#f8fafc" font-size="62" font-weight="600">--</text>
+    <text x="200" y="326" text-anchor="middle" fill="#8c9bbd" font-size="13" font-weight="400" letter-spacing="3" style="font-family:var(--fonte)">UMIDADE DO SOLO</text>
+  </svg>
+  <div id="estado" class="estado nada">Aguardando sensor</div>
+  <div class="agua" id="agua"></div>
+  <div class="legenda">
+    <span><b style="background:var(--seco)"></b>Seco · até 30%</span>
+    <span><b style="background:var(--ideal)"></b>Ideal · 30% a 60%</span>
+    <span><b style="background:var(--encharcado)"></b>Encharcado · acima de 60%</span>
+  </div>
+</main>
+
+<div class="fundo" id="fundo"></div>
+<aside class="painel" id="painel" aria-label="Ajustes">
+  <div class="painel-topo">
+    <div class="abas">
+      <button class="ativa" data-aba="abaCalib">Calibração</button>
+      <button data-aba="abaEsp">Mensagens da ESP32</button>
+    </div>
+    <button id="btnFechar" class="icone" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <section class="conteudo" id="abaCalib">
+    <div class="adcatual">Leitura agora (ADC) <strong id="adcAgora" class="num">--</strong></div>
+    <div class="calib">
+      <div class="caixa"><div><span>Seco</span><em>0 mL de água → 0%</em></div>
+        <strong id="cal0" class="num">--</strong><button data-amostra="0">Gravar</button></div>
+      <div class="caixa"><div><span>Ideal</span><em>45 mL de água → 50%</em></div>
+        <strong id="cal1" class="num">--</strong><button data-amostra="1">Gravar</button></div>
+      <div class="caixa"><div><span>Encharcado</span><em>90 mL de água → 100%</em></div>
+        <strong id="cal2" class="num">--</strong><button data-amostra="2">Gravar</button></div>
+    </div>
+    <p class="dica">Cada copo: 200 mL de terra seca + a água indicada, misturada na hora e apertada. Enfie a haste até a linha marcada, espere 1 minuto e clique em Gravar. Limpe a haste antes do próximo copo. Mínimo de 2 copos (o certo são os 3). Fica guardado neste computador. <a href="#" id="btnPadrao">Apagar calibração</a></p>
+  </section>
+
+  <section class="conteudo" id="abaEsp" hidden>
+    <div class="cmd">
+      <button data-cmd="f" title="Mostra a fila (FIFO)">Fila</button>
+      <button data-cmd="p" title="Mostra a pilha (LIFO)">Pilha</button>
+      <button data-cmd="d" title="Tira o topo da pilha">Desempilhar</button>
+      <button data-cmd="e" title="Estatísticas e memória">Estatísticas</button>
+    </div>
+    <div id="log"></div>
+  </section>
+</aside>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ---------------- Configuração ---------------- */
+  const BAUD = 115200;
+  const LIMITE_SECO = 30, LIMITE_ENCHARCADO = 60;
+  // Receita: 200 mL de terra seca + água. Terra de jardim (franca) satura com
+  // ~45% do volume em água (90 mL em 200 mL). A % do medidor e o grau de
+  // saturação: 0% = terra seca, 100% = encharcada (todos os poros com água).
+  const POROSIDADE = 45;           // % do volume que vira água quando satura
+  const AMOSTRAS = [
+    { ml: 0,  pct: 0 },     // seco
+    { ml: 45, pct: 50 },    // ideal
+    { ml: 90, pct: 100 },   // encharcado: terra saturada
+  ];
+  const PADRAO = { 0: 3200, 2: 1300 };  // antes de calibrar (valores do Wokwi)
+  const MEDIA_DE = 5;              // ponteiro usa a média das últimas 5 leituras (meio segundo)
+  const CHAVE = "aquasense.calibracao.3amostras";
+  const DEMO = new URLSearchParams(location.search).has("demo");
+
+  /* ---------------- Elementos ---------------- */
+  const $ = (id) => document.getElementById(id);
+  const elStatus = $("status"), elValor = $("valor"), elEstado = $("estado"), elAviso = $("aviso");
+  const elLog = $("log"), elAdc = $("adcAgora");
+
+  /* ---------------- Painel escondido ---------------- */
+  const abrirPainel = () => document.body.classList.add("aberto");
+  const fecharPainel = () => document.body.classList.remove("aberto");
+  $("btnAjustes").addEventListener("click", () => document.body.classList.toggle("aberto"));
+  $("btnFechar").addEventListener("click", fecharPainel);
+  $("fundo").addEventListener("click", fecharPainel);
+  document.querySelectorAll("[data-aba]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-aba]").forEach((x) => {
+      x.classList.toggle("ativa", x === b);
+      $(x.dataset.aba).hidden = x !== b;
+    });
+    if (b.dataset.aba === "abaEsp") elLog.scrollTop = elLog.scrollHeight;
+  }));
+
+  /* ---------------- Calibração (localStorage) ---------------- */
+  function lerCalib() {
+    try {
+      const c = JSON.parse(localStorage.getItem(CHAVE) || "null");
+      if (c && typeof c === "object") return c;
+    } catch (e) {}
+    return {};
+  }
+  function gravarCalib(c) {
+    try { localStorage.setItem(CHAVE, JSON.stringify(c)); } catch (e) {}
+    mostrarCalib();
+  }
+  let calib = lerCalib();       // { indiceDaAmostra: adc }
+  const calibrado = () => Object.keys(calib).length >= 2;
+  function mostrarCalib() {
+    AMOSTRAS.forEach((a, i) => { $("cal" + i).textContent = Number.isFinite(calib[i]) ? calib[i] : "--"; });
+  }
+  mostrarCalib();
+
+  // Liga os pontos (ADC, %) gravados por retas e acha a % da leitura atual.
+  function pontosAtuais() {
+    const base = calibrado() ? calib : PADRAO;
+    return Object.keys(base).map((i) => [base[i], AMOSTRAS[i].pct]).sort((a, b) => a[0] - b[0]);
+  }
+  function adcParaUmidade(adc) {
+    const pts = pontosAtuais();
+    if (adc <= pts[0][0]) return pts[0][1];
+    if (adc >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+    for (let k = 1; k < pts.length; k++) {
+      const [x0, y0] = pts[k - 1], [x1, y1] = pts[k];
+      if (adc <= x1) return x1 === x0 ? y1 : y0 + (y1 - y0) * (adc - x0) / (x1 - x0);
+    }
+    return 0;
+  }
+
+  /* ---------------- Velocímetro (SVG) ---------------- */
+  const CX = 200, CY = 190, R = 150, INICIO = 135, VARREDURA = 270;
+  const NS = "http://www.w3.org/2000/svg";
+  const ang = (v) => INICIO + VARREDURA * v / 100;
+  const ponto = (a, r) => [CX + r * Math.cos(a * Math.PI / 180), CY + r * Math.sin(a * Math.PI / 180)];
+  function arco(v1, v2, r) {
+    const a1 = ang(v1), a2 = ang(v2);
+    const [x1, y1] = ponto(a1, r), [x2, y2] = ponto(a2, r);
+    return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  }
+  function el(tag, attrs, pai) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    pai.appendChild(e);
+    return e;
+  }
+  const FAIXAS = [
+    { de: 0, ate: LIMITE_SECO, cor: "var(--seco)", nome: "seco" },
+    { de: LIMITE_SECO, ate: LIMITE_ENCHARCADO, cor: "var(--ideal)", nome: "ideal" },
+    { de: LIMITE_ENCHARCADO, ate: 100, cor: "var(--encharcado)", nome: "encharcado" },
+  ];
+  const gFaixas = $("faixas"), gMarcas = $("marcas");
+  el("path", { d: arco(0, 100, R), stroke: "rgba(255,255,255,.06)", "stroke-width": 30, fill: "none" }, gFaixas);
+  const arcosFaixa = {};
+  for (const f of FAIXAS) {
+    arcosFaixa[f.nome] = el("path", {
+      d: arco(f.de + 0.5, f.ate - 0.5, R), stroke: f.cor, "stroke-width": 24, fill: "none",
+      opacity: .4, style: "transition: opacity .4s, stroke-width .4s"
+    }, gFaixas);
+  }
+  for (let v = 0; v <= 100; v += 2) {
+    const grande = v % 10 === 0;
+    const [x1, y1] = ponto(ang(v), R - 22);
+    const [x2, y2] = ponto(ang(v), R - (grande ? 34 : 27));
+    el("line", { x1, y1, x2, y2, stroke: grande ? "#cbd5e1" : "rgba(203,213,225,.3)", "stroke-width": grande ? 2.2 : 1.1, "stroke-linecap": "round" }, gMarcas);
+    if (grande) {
+      const [tx, ty] = ponto(ang(v), R - 52);
+      const t = el("text", { x: tx, y: ty + 5, "text-anchor": "middle", fill: "#8c9bbd", "font-size": 14, "font-weight": 400, class: "num" }, gMarcas);
+      t.textContent = v;
+    }
+  }
+  const ponteiro = $("ponteiro");
+
+  let alvo = null, mostrado = 0;
+  function animar() {
+    if (alvo !== null) {
+      mostrado += (alvo - mostrado) * 0.12;
+      if (Math.abs(alvo - mostrado) < 0.05) mostrado = alvo;
+    }
+    ponteiro.setAttribute("transform", `translate(${CX} ${CY}) rotate(${ang(mostrado).toFixed(2)})`);
+    requestAnimationFrame(animar);
+  }
+  requestAnimationFrame(animar);
+
+  function classificar(p) {
+    if (p < LIMITE_SECO) return { nome: "seco", texto: "Seco" };
+    if (p > LIMITE_ENCHARCADO) return { nome: "encharcado", texto: "Encharcado" };
+    return { nome: "ideal", texto: "Ideal" };
+  }
+
+  /* ---------------- Nova leitura ---------------- */
+  let ultimoAdc = null, ultimosAdc = [], ultimoDado = 0;
+  function novaLeitura(adc) {
+    ultimoAdc = adc;
+    ultimoDado = performance.now();
+    ultimosAdc.push(adc); if (ultimosAdc.length > MEDIA_DE) ultimosAdc.shift();
+    const p = adcParaUmidade(adcEstavel());
+    alvo = p;
+    elValor.textContent = p.toFixed(0) + "%";
+    $("agua").innerHTML = calibrado()
+      ? `≈ <strong>${(p * POROSIDADE / 100).toFixed(0)}%</strong> de água no volume do solo`
+      : "Sem calibração: usando os números do simulador";
+    elAdc.textContent = adc;
+    const c = classificar(p);
+    elEstado.className = "estado " + c.nome;
+    elEstado.textContent = c.texto;
+    for (const f of FAIXAS) {
+      arcosFaixa[f.nome].setAttribute("opacity", f.nome === c.nome ? 1 : .3);
+      arcosFaixa[f.nome].setAttribute("stroke-width", f.nome === c.nome ? 30 : 22);
+    }
+  }
+
+  /* ---------------- Linhas que chegam da ESP32 ---------------- */
+  function linhaRecebida(linha) {
+    linha = linha.replace(/\r$/, "");
+    if (!linha) return;
+    if (linha.startsWith("DADO;")) {
+      const campos = {};
+      for (const par of linha.slice(5).split(";")) {
+        const [k, v] = par.split("=");
+        if (k) campos[k.trim()] = v;
+      }
+      const adc = parseInt(campos.adc, 10);
+      if (Number.isFinite(adc)) novaLeitura(adc);
+      return;
+    }
+    registrar(linha);
+  }
+  function registrar(texto) {
+    const fimNoFundo = elLog.scrollHeight - elLog.scrollTop - elLog.clientHeight < 20;
+    elLog.textContent += texto + "\n";
+    if (elLog.textContent.length > 20000) elLog.textContent = elLog.textContent.slice(-15000);
+    if (fimNoFundo) elLog.scrollTop = elLog.scrollHeight;
+  }
+
+  /* ---------------- Status / avisos ---------------- */
+  function status(texto, tipo) {
+    elStatus.className = "pilula" + (tipo ? " " + tipo : "");
+    elStatus.querySelector("span").textContent = texto;
+  }
+  function aviso(texto) {
+    elAviso.style.display = texto ? "block" : "none";
+    elAviso.textContent = texto || "";
+  }
+  let toastTimer;
+  function toast(texto) {
+    const t = $("toast"); t.textContent = texto; t.classList.add("ver");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("ver"), 2600);
+  }
+
+  /* ---------------- Web Serial ---------------- */
+  let porta = null, leitor = null, conectando = false;
+
+  async function abrir(p) {
+    if (conectando || porta) return;
+    conectando = true;
+    status("Conectando...", "alerta");
+    try {
+      await p.open({ baudRate: BAUD });
+      try { await p.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (e) {}
+      porta = p;
+      ultimoDado = performance.now();
+      status("Conectado", "ok");
+      $("btnConectar").hidden = true;
+      aviso("");
+      registrar("--- conectado à ESP32 ---");
+      lerSempre(p);
+    } catch (e) {
+      status("Desconectado");
+      $("btnConectar").hidden = false;
+      if (String(e).includes("already open") || e.name === "InvalidStateError") {
+        aviso("A porta está aberta em outro programa (Monitor Serial da Arduino IDE, PuTTY ou outra aba). Feche-o e a página reconecta sozinha.");
+      } else if (e.name === "NetworkError") {
+        aviso("Não consegui abrir a porta. Se outro programa (Monitor Serial, outra aba do Chrome) estiver usando a ESP32, feche-o. A página tenta de novo sozinha.");
+      } else {
+        aviso("Erro ao conectar: " + e.message);
+      }
+    } finally {
+      conectando = false;
+    }
+  }
+
+  async function lerSempre(p) {
+    const dec = new TextDecoder();
+    let buf = "";
+    while (porta === p && p.readable) {
+      leitor = p.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await leitor.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n")) >= 0) {
+            linhaRecebida(buf.slice(0, i));
+            buf = buf.slice(i + 1);
+          }
+          if (buf.length > 4000) buf = "";
+        }
+      } catch (e) {
+        break;
+      } finally {
+        try { leitor.releaseLock(); } catch (e) {}
+        leitor = null;
+      }
+    }
+    await fechar(p);
+  }
+
+  async function fechar(p) {
+    if (porta !== p) return;
+    porta = null;
+    try { await p.close(); } catch (e) {}
+    status("Desconectado — aguardando o cabo", "alerta");
+    registrar("--- conexão perdida ---");
+    $("btnConectar").hidden = false;
+  }
+
+  async function enviar(texto) {
+    if (!porta || !porta.writable) { toast("Conecte a ESP32 primeiro"); return; }
+    const w = porta.writable.getWriter();
+    try { await w.write(new TextEncoder().encode(texto)); }
+    finally { w.releaseLock(); }
+  }
+
+  async function tentarPortasAutorizadas() {
+    if (porta || conectando || !("serial" in navigator)) return;
+    const portas = await navigator.serial.getPorts();
+    if (portas.length) await abrir(portas[0]);
+  }
+
+  if (DEMO) {
+    status("Modo demonstração", "ok");
+    $("btnConectar").hidden = true;
+    let t = 0;
+    setInterval(() => {
+      t += 1;
+      const adc = Math.round(2250 + 900 * Math.sin(t / 90) + (Math.random() - .5) * 40);
+      linhaRecebida(`DADO;id=${t};adc=${adc};umid=0;bomba=0`);
+      if (t % 30 === 0) linhaRecebida(`#${t}  ADC ${adc}  (demonstração)`);
+    }, 100);
+  } else if (!("serial" in navigator)) {
+    status("Navegador sem Web Serial");
+    $("btnConectar").disabled = true;
+    aviso("Este navegador não fala com a porta USB. Abra este arquivo no Google Chrome (ou Edge) do computador.");
+  } else {
+    $("btnConectar").addEventListener("click", async () => {
+      try {
+        const p = await navigator.serial.requestPort();
+        await abrir(p);
+      } catch (e) {
+        if (e.name !== "NotFoundError") aviso("Erro: " + e.message);
+      }
+    });
+    // Cabo ligado de novo (porta já autorizada): reconecta sozinho
+    navigator.serial.addEventListener("connect", (ev) => { setTimeout(() => { if (!porta) abrir(ev.target); }, 600); });
+    navigator.serial.addEventListener("disconnect", (ev) => { if (porta === ev.target) fechar(porta); });
+    tentarPortasAutorizadas();
+    setInterval(tentarPortasAutorizadas, 3000);
+  }
+
+  // Conectado mas sem números? (programa errado na placa, sensor solto...)
+  setInterval(() => {
+    if (porta && performance.now() - ultimoDado > 4000) {
+      status("Conectado — sem leituras", "alerta");
+    } else if (porta) {
+      status("Conectado", "ok");
+    }
+  }, 1000);
+
+  /* ---------------- Botões ---------------- */
+  document.querySelectorAll("[data-cmd]").forEach((b) =>
+    b.addEventListener("click", () => enviar(b.dataset.cmd)));
+
+  function adcEstavel() {
+    if (!ultimosAdc.length) return null;
+    return Math.round(ultimosAdc.reduce((a, b) => a + b, 0) / ultimosAdc.length);
+  }
+  const DIFERENCA_MINIMA = 60; // amostras vizinhas precisam dar números diferentes
+  const NOMES = ["Seco", "Ideal", "Encharcado"];
+  function gravarAmostra(i) {
+    const v = adcEstavel();
+    if (v === null) return toast("Ainda não chegou leitura do sensor");
+    const novo = { ...calib, [i]: v };
+    // mais água => número (ADC) menor. Confere a ordem com as outras amostras.
+    const ordem = Object.keys(novo).map(Number).sort((a, b) => a - b);
+    for (let k = 1; k < ordem.length; k++) {
+      const a = ordem[k - 1], b = ordem[k];
+      if (novo[b] > novo[a] - DIFERENCA_MINIMA) {
+        return toast(`Não gravei: ${NOMES[b]} (${novo[b]}) tem mais água e devia dar número menor que ${NOMES[a]} (${novo[a]}). Espere o número parar ou refaça o copo.`);
+      }
+    }
+    calib = novo; gravarCalib(calib);
+    toast(`${NOMES[i]} gravado: ADC ${v}`);
+    if (ultimoAdc !== null) novaLeitura(ultimoAdc);
+  }
+  document.querySelectorAll("[data-amostra]").forEach((b) =>
+    b.addEventListener("click", () => gravarAmostra(Number(b.dataset.amostra))));
+  $("btnPadrao").addEventListener("click", (e) => {
+    e.preventDefault();
+    calib = {}; gravarCalib(calib);
+    toast("Calibração apagada");
+    if (ultimoAdc !== null) novaLeitura(ultimoAdc);
+  });
+
+  function telaCheia() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+  $("btnTela").addEventListener("click", telaCheia);
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === "f" || e.key === "F") telaCheia();
+    else if (e.key === "c" || e.key === "C") document.body.classList.toggle("aberto");
+    else if (e.key === "Escape") fecharPainel();
+  });
+})();
+</script>
+</body>
+</html>
